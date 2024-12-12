@@ -6,10 +6,10 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-const evnVarPrefix = "WALLET"
+const envVarPrefix = "WALLET"
 
 func prefixEnvVars(name string) []string {
-	return []string{evnVarPrefix + "_" + name}
+	return []string{envVarPrefix + "_" + name}
 }
 
 var (
@@ -120,8 +120,6 @@ var (
 		EnvVars:  prefixEnvVars("API_CACHE_ENABLE"),
 		Required: true,
 	}
-
-	// MasterDb Flags
 	MasterDbHostFlag = &cli.StringFlag{
 		Name:     "master-db-host",
 		Usage:    "The host of the master database",
@@ -240,8 +238,8 @@ var optionalFlags = []cli.Flag{
 	ApiCacheDetailExpireTimeFlag,
 }
 
+var Flags []cli.Flag
+
 func init() {
 	Flags = append(requireFlags, optionalFlags...)
 }
-
-var Flags []cli.Flag
