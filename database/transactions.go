@@ -2,12 +2,14 @@ package database
 
 import (
 	"errors"
-	"github.com/dapplink-labs/multichain-sync-account/rpcclient/chain-account/account"
-	"gorm.io/gorm"
 	"math/big"
+
+	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+
+	"github.com/dapplink-labs/multichain-sync-account/rpcclient/chain-account/account"
 )
 
 type Transactions struct {

@@ -3,9 +3,8 @@ package config
 import (
 	"time"
 
-	"github.com/urfave/cli/v2"
-
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/urfave/cli/v2"
 
 	"github.com/dapplink-labs/multichain-sync-account/flags"
 )

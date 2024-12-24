@@ -1,7 +1,6 @@
 package database
 
 import (
-	"github.com/dapplink-labs/multichain-sync-account/common/json2"
 	"math/big"
 	"strconv"
 	"testing"
@@ -9,6 +8,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+
+	"github.com/dapplink-labs/multichain-sync-account/common/json2"
 )
 
 func TestStoreBalances(t *testing.T) {

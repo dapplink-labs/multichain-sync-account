@@ -4,10 +4,9 @@ import (
 	"context"
 	"sync/atomic"
 
+	"github.com/ethereum/go-ethereum/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-
-	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/dapplink-labs/multichain-sync-account/config"
 	"github.com/dapplink-labs/multichain-sync-account/database"

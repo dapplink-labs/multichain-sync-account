@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dapplink-labs/multichain-sync-account/database"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/dapplink-labs/multichain-sync-account/database"
 )
 
 func setupNotifier(t *testing.T) *Notifier {

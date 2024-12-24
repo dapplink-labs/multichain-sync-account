@@ -5,9 +5,10 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/dapplink-labs/multichain-sync-account/common/json2"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+
+	"github.com/dapplink-labs/multichain-sync-account/common/json2"
 )
 
 func TestDepositsDB_StoreAndQuery(t *testing.T) {

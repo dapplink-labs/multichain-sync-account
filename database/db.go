@@ -3,7 +3,6 @@ package database
 import (
 	"context"
 	"fmt"
-	"gorm.io/gorm/logger"
 	"log"
 	"os"
 	"path/filepath"
@@ -12,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 
 	retry2 "github.com/dapplink-labs/multichain-sync-account/common/retry"
 	"github.com/dapplink-labs/multichain-sync-account/config"
