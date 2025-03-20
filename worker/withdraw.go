@@ -75,20 +75,21 @@ func (w *Withdraw) Start() error {
 						continue
 					}
 
-					var balanceList []database.Balances
+					var balanceList []*database.Balances
 
 					for _, unSendTransaction := range unSendTransactionList {
-						balanceItem := database.Balances{
-							TokenAddress: unSendTransaction.TokenAddress,
-							Address:      unSendTransaction.FromAddress,
-							LockBalance:  unSendTransaction.Amount,
-						}
-						balanceList = append(balanceList, balanceItem)
 						txHash, err := w.rpcClient.SendTx(unSendTransaction.TxSignHex)
 						if err != nil {
 							log.Error("send transaction fail", "err", err)
 							continue
 						} else {
+							balanceItem := &database.Balances{
+								TokenAddress: unSendTransaction.TokenAddress,
+								Address:      unSendTransaction.FromAddress,
+								LockBalance:  unSendTransaction.Amount,
+							}
+							balanceList = append(balanceList, balanceItem)
+
 							unSendTransaction.TxHash = common.HexToHash(txHash)
 							unSendTransaction.Status = database.TxStatusBroadcasted
 						}
@@ -99,14 +100,13 @@ func (w *Withdraw) Start() error {
 						if err := w.db.Transaction(func(tx *database.DB) error {
 							if len(balanceList) > 0 {
 								log.Info("Update address balance", "totalTx", len(balanceList))
-								if err := tx.Balances.UpdateBalances(businessId.BusinessUid, balanceList); err != nil {
+								if err := tx.Balances.UpdateBalanceListByTwoAddress(businessId.BusinessUid, balanceList); err != nil {
 									log.Error("Update address balance fail", "err", err)
 									return err
 								}
-
 							}
 							if len(unSendTransactionList) > 0 {
-								err = w.db.Withdraws.UpdateWithdrawStatus(businessId.BusinessUid, 2, unSendTransactionList)
+								err = w.db.Withdraws.UpdateWithdrawListById(businessId.BusinessUid, unSendTransactionList)
 								if err != nil {
 									log.Error("update withdraw status fail", "err", err)
 									return err

@@ -3,12 +3,15 @@ package database
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/pkg/errors"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 
 	retry2 "github.com/dapplink-labs/multichain-sync-account/common/retry"
 	"github.com/dapplink-labs/multichain-sync-account/config"
@@ -42,18 +45,29 @@ func NewDB(ctx context.Context, dbConfig config.DBConfig) (*DB, error) {
 		dsn += fmt.Sprintf(" password=%s", dbConfig.Password)
 	}
 
+	newLogger := logger.New(
+		log.New(log.Writer(), "\r\n", log.LstdFlags), // io writer
+		logger.Config{
+			SlowThreshold:             time.Second, // Slow SQL threshold
+			LogLevel:                  logger.Info, // Log level
+			IgnoreRecordNotFoundError: true,        // Ignore ErrRecordNotFound error for logger
+			Colorful:                  true,        // Disable color
+		},
+	)
+
 	gormConfig := gorm.Config{
 		SkipDefaultTransaction: true,
 		CreateBatchSize:        3_000,
+		Logger:                 newLogger, // Set the logger
 	}
 
 	retryStrategy := &retry2.ExponentialStrategy{Min: 1000, Max: 20_000, MaxJitter: 250}
-	gorm, err := retry2.Do[*gorm.DB](context.Background(), 10, retryStrategy, func() (*gorm.DB, error) {
-		gorm, err := gorm.Open(postgres.Open(dsn), &gormConfig)
+	gormDbBox, err := retry2.Do[*gorm.DB](context.Background(), 10, retryStrategy, func() (*gorm.DB, error) {
+		gormDb, err := gorm.Open(postgres.Open(dsn), &gormConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to connect to database: %w", err)
 		}
-		return gorm, nil
+		return gormDb, nil
 	})
 
 	if err != nil {
@@ -61,17 +75,17 @@ func NewDB(ctx context.Context, dbConfig config.DBConfig) (*DB, error) {
 	}
 
 	db := &DB{
-		gorm:         gorm,
-		CreateTable:  NewCreateTableDB(gorm),
-		Blocks:       NewBlocksDB(gorm),
-		Addresses:    NewAddressesDB(gorm),
-		Balances:     NewBalancesDB(gorm),
-		Deposits:     NewDepositsDB(gorm),
-		Withdraws:    NewWithdrawsDB(gorm),
-		Transactions: NewTransactionsDB(gorm),
-		Tokens:       NewTokensDB(gorm),
-		Business:     NewBusinessDB(gorm),
-		Internals:    NewInternalsDB(gorm),
+		gorm:         gormDbBox,
+		CreateTable:  NewCreateTableDB(gormDbBox),
+		Blocks:       NewBlocksDB(gormDbBox),
+		Addresses:    NewAddressesDB(gormDbBox),
+		Balances:     NewBalancesDB(gormDbBox),
+		Deposits:     NewDepositsDB(gormDbBox),
+		Withdraws:    NewWithdrawsDB(gormDbBox),
+		Transactions: NewTransactionsDB(gormDbBox),
+		Tokens:       NewTokensDB(gormDbBox),
+		Business:     NewBusinessDB(gormDbBox),
+		Internals:    NewInternalsDB(gormDbBox),
 	}
 	return db, nil
 }

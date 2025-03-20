@@ -23,13 +23,17 @@ func NewWalletChainAccountClient(ctx context.Context, rpc account.WalletAccountS
 	return &WalletChainAccountClient{Ctx: ctx, AccountRpClient: rpc, ChainName: chainName}, nil
 }
 
-func (wac *WalletChainAccountClient) ExportAddressByPubKey(method, publicKey string) string {
+func (wac *WalletChainAccountClient) ExportAddressByPubKey(typeOrVersion, publicKey string) string {
 	req := &account.ConvertAddressRequest{
 		Chain:     wac.ChainName,
-		Type:      method,
+		Type:      typeOrVersion,
 		PublicKey: publicKey,
 	}
 	address, err := wac.AccountRpClient.ConvertAddress(wac.Ctx, req)
+	if err != nil {
+		log.Error("covert address fail", "err", err)
+		return ""
+	}
 	if address.Code == common.ReturnCode_ERROR {
 		log.Error("covert address fail", "err", err)
 		return ""
@@ -50,6 +54,10 @@ func (wac *WalletChainAccountClient) GetBlockHeader(number *big.Int) (*BlockHead
 		Height:  height,
 	}
 	blockHeader, err := wac.AccountRpClient.GetBlockHeaderByNumber(wac.Ctx, req)
+	if err != nil {
+		log.Error("get latest block GetBlockHeaderByNumber fail", "err", err)
+		return nil, err
+	}
 	if blockHeader.Code == common.ReturnCode_ERROR {
 		log.Error("get latest block fail", "err", err)
 		return nil, err
@@ -71,6 +79,10 @@ func (wac *WalletChainAccountClient) GetBlockInfo(blockNumber *big.Int) ([]*acco
 		ViewTx: true,
 	}
 	blockInfo, err := wac.AccountRpClient.GetBlockByNumber(wac.Ctx, req)
+	if err != nil {
+		log.Error("get block GetBlockByNumber fail", "err", err)
+		return nil, err
+	}
 	if blockInfo.Code == common.ReturnCode_ERROR {
 		log.Error("get block info fail", "err", err)
 		return nil, err
@@ -85,6 +97,10 @@ func (wac *WalletChainAccountClient) GetTransactionByHash(hash string) (*account
 		Hash:    hash,
 	}
 	txInfo, err := wac.AccountRpClient.GetTxByHash(wac.Ctx, req)
+	if err != nil {
+		log.Error("get GetTxByHash fail", "err", err)
+		return nil, err
+	}
 	if txInfo.Code == common.ReturnCode_ERROR {
 		log.Error("get block info fail", "err", err)
 		return nil, err
@@ -92,7 +108,7 @@ func (wac *WalletChainAccountClient) GetTransactionByHash(hash string) (*account
 	return txInfo.Tx, nil
 }
 
-func (wac *WalletChainAccountClient) GetAccount(address string) (int, error) {
+func (wac *WalletChainAccountClient) GetAccountAccountNumber(address string) (int, error) {
 	req := &account.AccountRequest{
 		Chain:   wac.ChainName,
 		Network: "mainnet",
@@ -104,6 +120,46 @@ func (wac *WalletChainAccountClient) GetAccount(address string) (int, error) {
 		return 0, err
 	}
 	return strconv.Atoi(accountInfo.AccountNumber)
+}
+
+func (wac *WalletChainAccountClient) GetAccount(address string) (int, int, int) {
+	req := &account.AccountRequest{
+		Chain:           wac.ChainName,
+		Network:         "mainnet",
+		Address:         address,
+		ContractAddress: "0x00",
+	}
+
+	accountInfo, err := wac.AccountRpClient.GetAccount(wac.Ctx, req)
+	if err != nil {
+		log.Info("GetAccount fail", "err", err)
+		return 0, 0, 0
+	}
+
+	if accountInfo.Code == common.ReturnCode_ERROR {
+		log.Info("get account info fail", "msg", accountInfo.Msg)
+		return 0, 0, 0
+	}
+
+	accountNumber, err := strconv.Atoi(accountInfo.AccountNumber)
+	if err != nil {
+		log.Info("failed to convert account number", "err", err)
+		return 0, 0, 0
+	}
+
+	sequence, err := strconv.Atoi(accountInfo.Sequence)
+	if err != nil {
+		log.Info("failed to convert sequence", "err", err)
+		return 0, 0, 0
+	}
+
+	balance, err := strconv.Atoi(accountInfo.Balance)
+	if err != nil {
+		log.Info("failed to convert balance", "err", err)
+		return 0, 0, 0
+	}
+
+	return accountNumber, sequence, balance
 }
 
 func (wac *WalletChainAccountClient) SendTx(rawTx string) (string, error) {

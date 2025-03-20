@@ -32,8 +32,8 @@ const (
 type BusinessMiddleWireServicesClient interface {
 	BusinessRegister(ctx context.Context, in *BusinessRegisterRequest, opts ...grpc.CallOption) (*BusinessRegisterResponse, error)
 	ExportAddressesByPublicKeys(ctx context.Context, in *ExportAddressesRequest, opts ...grpc.CallOption) (*ExportAddressesResponse, error)
-	BuildUnSignTransaction(ctx context.Context, in *UnSignWithdrawTransactionRequest, opts ...grpc.CallOption) (*UnSignWithdrawTransactionResponse, error)
-	BuildSignedTransaction(ctx context.Context, in *SignedWithdrawTransactionRequest, opts ...grpc.CallOption) (*SignedWithdrawTransactionResponse, error)
+	BuildUnSignTransaction(ctx context.Context, in *UnSignTransactionRequest, opts ...grpc.CallOption) (*UnSignTransactionResponse, error)
+	BuildSignedTransaction(ctx context.Context, in *SignedTransactionRequest, opts ...grpc.CallOption) (*SignedTransactionResponse, error)
 	SetTokenAddress(ctx context.Context, in *SetTokenAddressRequest, opts ...grpc.CallOption) (*SetTokenAddressResponse, error)
 }
 
@@ -65,9 +65,9 @@ func (c *businessMiddleWireServicesClient) ExportAddressesByPublicKeys(ctx conte
 	return out, nil
 }
 
-func (c *businessMiddleWireServicesClient) BuildUnSignTransaction(ctx context.Context, in *UnSignWithdrawTransactionRequest, opts ...grpc.CallOption) (*UnSignWithdrawTransactionResponse, error) {
+func (c *businessMiddleWireServicesClient) BuildUnSignTransaction(ctx context.Context, in *UnSignTransactionRequest, opts ...grpc.CallOption) (*UnSignTransactionResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(UnSignWithdrawTransactionResponse)
+	out := new(UnSignTransactionResponse)
 	err := c.cc.Invoke(ctx, BusinessMiddleWireServices_BuildUnSignTransaction_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -75,9 +75,9 @@ func (c *businessMiddleWireServicesClient) BuildUnSignTransaction(ctx context.Co
 	return out, nil
 }
 
-func (c *businessMiddleWireServicesClient) BuildSignedTransaction(ctx context.Context, in *SignedWithdrawTransactionRequest, opts ...grpc.CallOption) (*SignedWithdrawTransactionResponse, error) {
+func (c *businessMiddleWireServicesClient) BuildSignedTransaction(ctx context.Context, in *SignedTransactionRequest, opts ...grpc.CallOption) (*SignedTransactionResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(SignedWithdrawTransactionResponse)
+	out := new(SignedTransactionResponse)
 	err := c.cc.Invoke(ctx, BusinessMiddleWireServices_BuildSignedTransaction_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -101,8 +101,8 @@ func (c *businessMiddleWireServicesClient) SetTokenAddress(ctx context.Context, 
 type BusinessMiddleWireServicesServer interface {
 	BusinessRegister(context.Context, *BusinessRegisterRequest) (*BusinessRegisterResponse, error)
 	ExportAddressesByPublicKeys(context.Context, *ExportAddressesRequest) (*ExportAddressesResponse, error)
-	BuildUnSignTransaction(context.Context, *UnSignWithdrawTransactionRequest) (*UnSignWithdrawTransactionResponse, error)
-	BuildSignedTransaction(context.Context, *SignedWithdrawTransactionRequest) (*SignedWithdrawTransactionResponse, error)
+	BuildUnSignTransaction(context.Context, *UnSignTransactionRequest) (*UnSignTransactionResponse, error)
+	BuildSignedTransaction(context.Context, *SignedTransactionRequest) (*SignedTransactionResponse, error)
 	SetTokenAddress(context.Context, *SetTokenAddressRequest) (*SetTokenAddressResponse, error)
 }
 
@@ -119,10 +119,10 @@ func (UnimplementedBusinessMiddleWireServicesServer) BusinessRegister(context.Co
 func (UnimplementedBusinessMiddleWireServicesServer) ExportAddressesByPublicKeys(context.Context, *ExportAddressesRequest) (*ExportAddressesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExportAddressesByPublicKeys not implemented")
 }
-func (UnimplementedBusinessMiddleWireServicesServer) BuildUnSignTransaction(context.Context, *UnSignWithdrawTransactionRequest) (*UnSignWithdrawTransactionResponse, error) {
+func (UnimplementedBusinessMiddleWireServicesServer) BuildUnSignTransaction(context.Context, *UnSignTransactionRequest) (*UnSignTransactionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BuildUnSignTransaction not implemented")
 }
-func (UnimplementedBusinessMiddleWireServicesServer) BuildSignedTransaction(context.Context, *SignedWithdrawTransactionRequest) (*SignedWithdrawTransactionResponse, error) {
+func (UnimplementedBusinessMiddleWireServicesServer) BuildSignedTransaction(context.Context, *SignedTransactionRequest) (*SignedTransactionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BuildSignedTransaction not implemented")
 }
 func (UnimplementedBusinessMiddleWireServicesServer) SetTokenAddress(context.Context, *SetTokenAddressRequest) (*SetTokenAddressResponse, error) {
@@ -185,7 +185,7 @@ func _BusinessMiddleWireServices_ExportAddressesByPublicKeys_Handler(srv interfa
 }
 
 func _BusinessMiddleWireServices_BuildUnSignTransaction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UnSignWithdrawTransactionRequest)
+	in := new(UnSignTransactionRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -197,13 +197,13 @@ func _BusinessMiddleWireServices_BuildUnSignTransaction_Handler(srv interface{},
 		FullMethod: BusinessMiddleWireServices_BuildUnSignTransaction_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BusinessMiddleWireServicesServer).BuildUnSignTransaction(ctx, req.(*UnSignWithdrawTransactionRequest))
+		return srv.(BusinessMiddleWireServicesServer).BuildUnSignTransaction(ctx, req.(*UnSignTransactionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _BusinessMiddleWireServices_BuildSignedTransaction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SignedWithdrawTransactionRequest)
+	in := new(SignedTransactionRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -215,7 +215,7 @@ func _BusinessMiddleWireServices_BuildSignedTransaction_Handler(srv interface{},
 		FullMethod: BusinessMiddleWireServices_BuildSignedTransaction_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BusinessMiddleWireServicesServer).BuildSignedTransaction(ctx, req.(*SignedWithdrawTransactionRequest))
+		return srv.(BusinessMiddleWireServicesServer).BuildSignedTransaction(ctx, req.(*SignedTransactionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

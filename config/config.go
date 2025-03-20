@@ -3,15 +3,14 @@ package config
 import (
 	"time"
 
-	"github.com/urfave/cli/v2"
-
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/urfave/cli/v2"
 
 	"github.com/dapplink-labs/multichain-sync-account/flags"
 )
 
 const (
-	defaulConfirmations         = 64
+	defaultConfirmations        = 64
 	defaultSynchronizerInterval = 5000
 	defaultWorkerInterval       = 500
 	defaultBlocksStep           = 500
@@ -66,7 +65,7 @@ func LoadConfig(cliCtx *cli.Context) (Config, error) {
 	cfg = NewConfig(cliCtx)
 
 	if cfg.ChainNode.Confirmations == 0 {
-		cfg.ChainNode.Confirmations = defaulConfirmations
+		cfg.ChainNode.Confirmations = defaultConfirmations
 	}
 
 	if cfg.ChainNode.SynchronizerInterval == 0 {

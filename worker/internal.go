@@ -66,27 +66,31 @@ func (w *Internal) Start() error {
 				}
 
 				for _, businessId := range businessList {
-					unSendInternalTxList, err := w.db.Internals.UnSendInternalsList(businessId.BusinessUid)
+					unSendTransactionList, err := w.db.Internals.UnSendInternalsList(businessId.BusinessUid)
 					if err != nil {
 						log.Error("query un send internal tx list fail", "err", err)
 						continue
 					}
+					if len(unSendTransactionList) == 0 {
+						log.Error("Withdraw Start", "businessId", businessId, "unSendTransactionList", "is null")
+						continue
+					}
 
-					var balanceList []database.Balances
+					var balanceList []*database.Balances
 
-					for _, unSendInternalTx := range unSendInternalTxList {
-						balanceItem := database.Balances{
-							TokenAddress: unSendInternalTx.TokenAddress,
-							Address:      unSendInternalTx.FromAddress,
-							LockBalance:  unSendInternalTx.Amount,
-						}
-						balanceList = append(balanceList, balanceItem)
-
+					for _, unSendInternalTx := range unSendTransactionList {
 						txHash, err := w.rpcClient.SendTx(unSendInternalTx.TxSignHex)
 						if err != nil {
 							log.Error("send transaction fail", "err", err)
 							continue
 						} else {
+							balanceItem := &database.Balances{
+								TokenAddress: unSendInternalTx.TokenAddress,
+								Address:      unSendInternalTx.FromAddress,
+								LockBalance:  unSendInternalTx.Amount,
+							}
+							balanceList = append(balanceList, balanceItem)
+
 							unSendInternalTx.TxHash = common.HexToHash(txHash)
 							unSendInternalTx.Status = database.TxStatusBroadcasted
 						}
@@ -97,14 +101,14 @@ func (w *Internal) Start() error {
 						if err := w.db.Transaction(func(tx *database.DB) error {
 							if len(balanceList) > 0 {
 								log.Info("Update address balance", "totalTx", len(balanceList))
-								if err := tx.Balances.UpdateBalances(businessId.BusinessUid, balanceList); err != nil {
+								if err := tx.Balances.UpdateBalanceListByTwoAddress(businessId.BusinessUid, balanceList); err != nil {
 									log.Error("Update address balance fail", "err", err)
 									return err
 								}
 
 							}
-							if len(unSendInternalTxList) > 0 {
-								err = w.db.Internals.UpdateInternalStatus(businessId.BusinessUid, database.TxStatusWalletDone, unSendInternalTxList)
+							if len(unSendTransactionList) > 0 {
+								err = w.db.Internals.UpdateInternalListById(businessId.BusinessUid, unSendTransactionList)
 								if err != nil {
 									log.Error("update internals status fail", "err", err)
 									return err

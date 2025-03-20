@@ -1,6 +1,7 @@
 package notifier
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/ethereum/go-ethereum/log"
 	gresty "github.com/go-resty/resty/v2"
@@ -34,10 +35,15 @@ func NewNotifierClient(baseUrl string) (*NotifyClient, error) {
 }
 
 func (nc *NotifyClient) BusinessNotify(notifyData *NotifyRequest) (bool, error) {
+	body, err := json.Marshal(notifyData)
+	if err != nil {
+		log.Error("failed to marshal notify data", "err", err)
+		return false, err
+	}
 	res, err := nc.client.R().
 		SetHeader("Content-Type", "application/json").
-		SetBody(&notifyData).
-		SetResult(&NotifyResponse{}).Post("dapplink/notify")
+		SetBody(body).
+		SetResult(&NotifyResponse{}).Post("/dapplink/notify")
 	if err != nil {
 		log.Error("get transaction fee fail", "err", err)
 		return false, err

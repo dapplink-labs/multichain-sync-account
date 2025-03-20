@@ -22,7 +22,7 @@ type Transaction struct {
 	Hash           string
 	TokenAddress   string
 	ContractWallet string
-	TxType         string
+	TxType         database.TransactionType
 }
 
 type Config struct {
@@ -132,7 +132,7 @@ func (syncer *BaseSynchronizer) processBatch(headers []rpcclient.BlockHeader) er
 					Hash:           tx.Hash,
 					TokenAddress:   tx.TokenAddress,
 					ContractWallet: tx.ContractWallet,
-					TxType:         "unknown",
+					TxType:         database.TxTypeUnKnow,
 				}
 
 				/*
@@ -142,29 +142,29 @@ func (syncer *BaseSynchronizer) processBatch(headers []rpcclient.BlockHeader) er
 				 * If the 'from' address is a hot wallet address and the 'to' address is a cold wallet address, it is a hot-to-cold transfer; call the callback interface to notifier the business side.
 				 * If the 'from' address is a cold wallet address and the 'to' address is a hot wallet address, it is a cold-to-hot transfer; call the callback interface to notifier the business side.
 				 */
-				if !existFromAddress && (existToAddress && toAddressType == 0) { // 充值
+				if !existFromAddress && (existToAddress && toAddressType == database.AddressTypeEOA) { // 充值
 					log.Info("Found deposit transaction", "txHash", tx.Hash, "from", fromAddress, "to", toAddress)
-					txItem.TxType = "deposit"
+					txItem.TxType = database.TxTypeDeposit
 				}
 
-				if (existFromAddress && FromAddressType == 1) && !existToAddress { // 提现
+				if (existFromAddress && FromAddressType == database.AddressTypeHot) && !existToAddress { // 提现
 					log.Info("Found withdraw transaction", "txHash", tx.Hash, "from", fromAddress, "to", toAddress)
-					txItem.TxType = "withdraw"
+					txItem.TxType = database.TxTypeWithdraw
 				}
 
-				if (existFromAddress && FromAddressType == 0) && (existToAddress && toAddressType == 1) { // 归集
+				if (existFromAddress && FromAddressType == database.AddressTypeEOA) && (existToAddress && toAddressType == database.AddressTypeHot) { // 归集
 					log.Info("Found collection transaction", "txHash", tx.Hash, "from", fromAddress, "to", toAddress)
-					txItem.TxType = "collection"
+					txItem.TxType = database.TxTypeCollection
 				}
 
-				if (existFromAddress && FromAddressType == 1) && (existToAddress && toAddressType == 2) { // 热转冷
+				if (existFromAddress && FromAddressType == database.AddressTypeHot) && (existToAddress && toAddressType == database.AddressTypeCold) { // 热转冷
 					log.Info("Found hot2cold transaction", "txHash", tx.Hash, "from", fromAddress, "to", toAddress)
-					txItem.TxType = "hot2cold"
+					txItem.TxType = database.TxTypeHot2Cold
 				}
 
-				if (existFromAddress && FromAddressType == 2) && (existToAddress && toAddressType == 1) { // 热转冷
+				if (existFromAddress && FromAddressType == database.AddressTypeCold) && (existToAddress && toAddressType == database.AddressTypeHot) { // 热转冷
 					log.Info("Found cold2hot transaction", "txHash", tx.Hash, "from", fromAddress, "to", toAddress)
-					txItem.TxType = "cold2hot"
+					txItem.TxType = database.TxTypeCold2Hot
 				}
 				businessTransactions = append(businessTransactions, txItem)
 			}
