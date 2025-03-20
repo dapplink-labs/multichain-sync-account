@@ -82,8 +82,7 @@ func (bws *BusinessMiddleWireServices) ExportAddressesByPublicKeys(ctx context.C
 			log.Error("handle ParseAddressType fail", "type", value.Type, "err", err)
 			return nil, err
 		}
-		_, _, balance := bws.accountClient.GetAccount(address)
-
+		
 		dbAddress := &database.Addresses{
 			GUID:        uuid.New(),
 			Address:     common.HexToAddress(address),
@@ -98,7 +97,7 @@ func (bws *BusinessMiddleWireServices) ExportAddressesByPublicKeys(ctx context.C
 			Address:      common.HexToAddress(address),
 			TokenAddress: common.Address{},
 			AddressType:  parseAddressType,
-			Balance:      big.NewInt(int64(balance)),
+			Balance:      big.NewInt(0),
 			LockBalance:  big.NewInt(0),
 			Timestamp:    uint64(time.Now().Unix()),
 		}

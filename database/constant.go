@@ -29,7 +29,7 @@ const (
 type AddressType string
 
 const (
-	AddressTypeEOA  AddressType = "eoa"
+	AddressTypeUser AddressType = "user"
 	AddressTypeHot  AddressType = "hot"
 	AddressTypeCold AddressType = "cold"
 )
@@ -40,8 +40,8 @@ func (at AddressType) String() string {
 
 func ParseAddressType(s string) (AddressType, error) {
 	switch strings.ToLower(s) {
-	case string(AddressTypeEOA):
-		return AddressTypeEOA, nil
+	case string(AddressTypeUser):
+		return AddressTypeUser, nil
 	case string(AddressTypeHot):
 		return AddressTypeHot, nil
 	case string(AddressTypeCold):

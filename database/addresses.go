@@ -12,7 +12,7 @@ import (
 type Addresses struct {
 	GUID        uuid.UUID      `gorm:"primary_key" json:"guid"`
 	Address     common.Address `gorm:"type:varchar;unique;not null;serializer:bytes" json:"address"`
-	AddressType AddressType    `gorm:"type:varchar(10);not null;default:'eoa'" json:"address_type"`
+	AddressType AddressType    `gorm:"type:varchar(10);not null;default:'user'" json:"address_type"`
 	PublicKey   string         `gorm:"type:varchar;not null" json:"public_key"`
 	Timestamp   uint64         `gorm:"type:bigint;not null;check:timestamp > 0" json:"timestamp"`
 }
@@ -47,9 +47,9 @@ func (db *addressesDB) AddressExist(requestId string, address *common.Address) (
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return false, AddressTypeEOA
+			return false, AddressTypeUser
 		}
-		return false, AddressTypeEOA
+		return false, AddressTypeUser
 	}
 	return true, addressEntry.AddressType
 }
@@ -132,7 +132,7 @@ func (a *Addresses) Validate() error {
 		return errors.New("invalid timestamp")
 	}
 	switch a.AddressType {
-	case AddressTypeEOA, AddressTypeHot, AddressTypeCold:
+	case AddressTypeUser, AddressTypeHot, AddressTypeCold:
 		return nil
 	default:
 		return errors.New("invalid address type")

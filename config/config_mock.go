@@ -1,6 +1,6 @@
 package config
 
-func DbConfigTest() *DBConfig {
+func NewTestDbConfig() *DBConfig {
 	return &DBConfig{
 		Host:     "106.15.105.133",
 		Port:     5432,

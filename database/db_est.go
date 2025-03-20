@@ -7,7 +7,7 @@ import (
 )
 
 func SetupDb() *DB {
-	dbConfig := config.DbConfigTest()
+	dbConfig := config.NewTestDbConfig()
 
 	newDB, _ := NewDB(context.Background(), *dbConfig)
 	return newDB

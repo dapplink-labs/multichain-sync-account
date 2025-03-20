@@ -142,7 +142,7 @@ func (syncer *BaseSynchronizer) processBatch(headers []rpcclient.BlockHeader) er
 				 * If the 'from' address is a hot wallet address and the 'to' address is a cold wallet address, it is a hot-to-cold transfer; call the callback interface to notifier the business side.
 				 * If the 'from' address is a cold wallet address and the 'to' address is a hot wallet address, it is a cold-to-hot transfer; call the callback interface to notifier the business side.
 				 */
-				if !existFromAddress && (existToAddress && toAddressType == database.AddressTypeEOA) { // 充值
+				if !existFromAddress && (existToAddress && toAddressType == database.AddressTypeUser) { // 充值
 					log.Info("Found deposit transaction", "txHash", tx.Hash, "from", fromAddress, "to", toAddress)
 					txItem.TxType = database.TxTypeDeposit
 				}
@@ -152,7 +152,7 @@ func (syncer *BaseSynchronizer) processBatch(headers []rpcclient.BlockHeader) er
 					txItem.TxType = database.TxTypeWithdraw
 				}
 
-				if (existFromAddress && FromAddressType == database.AddressTypeEOA) && (existToAddress && toAddressType == database.AddressTypeHot) { // 归集
+				if (existFromAddress && FromAddressType == database.AddressTypeUser) && (existToAddress && toAddressType == database.AddressTypeHot) { // 归集
 					log.Info("Found collection transaction", "txHash", tx.Hash, "from", fromAddress, "to", toAddress)
 					txItem.TxType = database.TxTypeCollection
 				}

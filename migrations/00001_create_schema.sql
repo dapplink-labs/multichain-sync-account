@@ -57,11 +57,11 @@ CREATE TABLE IF NOT EXISTS addresses
 (
     guid         VARCHAR PRIMARY KEY,
     address      VARCHAR UNIQUE NOT NULL,
-    address_type VARCHAR(10)    NOT NULL DEFAULT 'eoa',
+    address_type VARCHAR(10)    NOT NULL DEFAULT 'user',
     public_key   VARCHAR        NOT NULL,
     timestamp    BIGINT         NOT NULL,
     CONSTRAINT check_timestamp CHECK (timestamp > 0),
-    CONSTRAINT check_address_type CHECK (address_type IN ('eoa', 'hot', 'cold'))
+    CONSTRAINT check_address_type CHECK (address_type IN ('user', 'hot', 'cold'))
 );
 CREATE INDEX IF NOT EXISTS idx_addresses_address ON addresses (address);
 CREATE INDEX IF NOT EXISTS idx_addresses_address_type ON addresses (address_type);
@@ -84,12 +84,12 @@ CREATE TABLE IF NOT EXISTS balances
     guid          VARCHAR PRIMARY KEY,
     address       VARCHAR     NOT NULL,
     token_address VARCHAR     NOT NULL,
-    address_type  VARCHAR(10) NOT NULL DEFAULT 'eoa',
+    address_type  VARCHAR(10) NOT NULL DEFAULT 'user',
     balance       UINT256     NOT NULL DEFAULT 0 CHECK (balance >= 0),
     lock_balance  UINT256     NOT NULL DEFAULT 0,
     timestamp     BIGINT      NOT NULL,
     CONSTRAINT check_timestamp CHECK (timestamp > 0),
-    CONSTRAINT check_address_type CHECK (address_type IN ('eoa', 'hot', 'cold'))
+    CONSTRAINT check_address_type CHECK (address_type IN ('user', 'hot', 'cold'))
 );
 CREATE INDEX IF NOT EXISTS idx_balances_address ON balances (address);
 CREATE INDEX IF NOT EXISTS idx_balances_token_address ON balances (token_address);

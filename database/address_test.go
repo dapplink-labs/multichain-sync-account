@@ -25,7 +25,7 @@ func TestAddressesDB_StoreAndQuery(t *testing.T) {
 	address := &Addresses{
 		GUID:        uuid.New(),
 		Address:     common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678"),
-		AddressType: AddressTypeEOA,
+		AddressType: AddressTypeUser,
 		PublicKey:   "public_key_example",
 		Timestamp:   uint64(time.Now().Unix()),
 	}
@@ -38,7 +38,7 @@ func TestAddressesDB_StoreAndQuery(t *testing.T) {
 	// Test AddressExist
 	exists, addrType := addressesDB.AddressExist(strconv.Itoa(CurrentRequestId), &address.Address)
 	assert.True(t, exists)
-	assert.Equal(t, AddressTypeEOA, addrType)
+	assert.Equal(t, AddressTypeUser, addrType)
 
 	// Test QueryAddressesByToAddress
 	result, err := addressesDB.QueryAddressesByToAddress(strconv.Itoa(CurrentRequestId), &address.Address)

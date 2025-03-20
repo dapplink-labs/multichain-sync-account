@@ -265,7 +265,7 @@ func (db *balancesDB) handleBalanceUpdate(tx *gorm.DB, requestId string, balance
 }
 
 func (db *balancesDB) handleDeposit(tx *gorm.DB, requestId string, balance *TokenBalance) error {
-	userAddress, err := db.QueryWalletBalanceByTokenAndAddress(requestId, AddressTypeEOA, balance.ToAddress, balance.TokenAddress)
+	userAddress, err := db.QueryWalletBalanceByTokenAndAddress(requestId, AddressTypeUser, balance.ToAddress, balance.TokenAddress)
 	if err != nil {
 		log.Error("Query user address failed", "err", err)
 		return err
@@ -294,7 +294,7 @@ func (db *balancesDB) handleWithdraw(tx *gorm.DB, requestId string, balance *Tok
 }
 
 func (db *balancesDB) handleCollection(tx *gorm.DB, requestId string, balance *TokenBalance) error {
-	userWallet, err := db.QueryWalletBalanceByTokenAndAddress(requestId, AddressTypeEOA, balance.FromAddress, balance.TokenAddress)
+	userWallet, err := db.QueryWalletBalanceByTokenAndAddress(requestId, AddressTypeUser, balance.FromAddress, balance.TokenAddress)
 	if err != nil {
 		log.Error("Query user wallet failed", "err", err)
 		return err
