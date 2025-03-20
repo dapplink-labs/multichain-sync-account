@@ -140,13 +140,13 @@ func (deposit *Deposit) handleBatch(batch map[string]*TransactionsChannel) error
 				log.Info("get transaction by hash fail", "err", err)
 				return err
 			}
-			amountBigInt, _ := new(big.Int).SetString(txItem.Values[0].Value, 10)
+			amountBigInt, _ := new(big.Int).SetString(txItem.Value, 10)
 			log.Info("Transaction amount", "amountBigInt", amountBigInt, "FromAddress", tx.FromAddress, "TokenAddress", tx.TokenAddress, "TokenAddress", tx.ToAddress)
 			balances = append(
 				balances,
 				database.TokenBalance{
 					FromAddress:  common.HexToAddress(tx.FromAddress),
-					ToAddress:    common.HexToAddress(txItem.Tos[0].Address),
+					ToAddress:    common.HexToAddress(txItem.To),
 					TokenAddress: common.HexToAddress(txItem.ContractAddress),
 					Balance:      amountBigInt,
 					TxType:       tx.TxType,
@@ -232,7 +232,7 @@ func (deposit *Deposit) handleBatch(batch map[string]*TransactionsChannel) error
 
 func (deposit *Deposit) HandleDeposit(tx *Transaction, txMsg *account.TxMessage) (database.Deposits, error) {
 	txFee, _ := new(big.Int).SetString(txMsg.Fee, 10)
-	txAmount, _ := new(big.Int).SetString(txMsg.Values[0].Value, 10)
+	txAmount, _ := new(big.Int).SetString(txMsg.Value, 10)
 	depositTx := database.Deposits{
 		GUID:         uuid.New(),
 		BlockHash:    common.Hash{},
@@ -253,7 +253,7 @@ func (deposit *Deposit) HandleDeposit(tx *Transaction, txMsg *account.TxMessage)
 
 func (deposit *Deposit) HandleWithdraw(tx *Transaction, txMsg *account.TxMessage) (database.Withdraws, error) {
 	//txFee, _ := new(big.Int).SetString(txMsg.Fee, 10)
-	txAmount, _ := new(big.Int).SetString(txMsg.Values[0].Value, 10)
+	txAmount, _ := new(big.Int).SetString(txMsg.Value, 10)
 	withdrawTx := database.Withdraws{
 		GUID:         uuid.New(),
 		BlockHash:    common.Hash{},
@@ -275,7 +275,7 @@ func (deposit *Deposit) HandleWithdraw(tx *Transaction, txMsg *account.TxMessage
 
 func (deposit *Deposit) HandleTransaction(tx *Transaction, txMsg *account.TxMessage) (database.Transactions, error) {
 	txFee, _ := new(big.Int).SetString(txMsg.Fee, 10)
-	txAmount, _ := new(big.Int).SetString(txMsg.Values[0].Value, 10)
+	txAmount, _ := new(big.Int).SetString(txMsg.Value, 10)
 	transationTx := database.Transactions{
 		GUID:         uuid.New(),
 		BlockHash:    common.Hash{},
@@ -297,7 +297,7 @@ func (deposit *Deposit) HandleTransaction(tx *Transaction, txMsg *account.TxMess
 
 func (deposit *Deposit) HandleInternalTx(tx *Transaction, txMsg *account.TxMessage) (database.Internals, error) {
 	//txFee, _ := new(big.Int).SetString(txMsg.Fee, 10)
-	txAmount, _ := new(big.Int).SetString(txMsg.Values[0].Value, 10)
+	txAmount, _ := new(big.Int).SetString(txMsg.Value, 10)
 	internalTx := database.Internals{
 		GUID:         uuid.New(),
 		BlockHash:    common.Hash{},

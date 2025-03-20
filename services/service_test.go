@@ -110,7 +110,7 @@ func TestBusinessMiddleWireServices_CreateUnSignTransaction_ETHTransfer(t *testi
 	}
 
 	// 执行测试
-	response, err := bws.CreateUnSignTransaction(ctx, request)
+	response, err := bws.BuildUnSignTransaction(ctx, request)
 
 	// 打印响应详情
 	respJSON := json2.ToPrettyJSON(response)

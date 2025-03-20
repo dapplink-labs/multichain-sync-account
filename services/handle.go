@@ -118,7 +118,7 @@ func (bws *BusinessMiddleWireServices) ExportAddressesByPublicKeys(ctx context.C
 	}, nil
 }
 
-func (bws *BusinessMiddleWireServices) CreateUnSignTransaction(ctx context.Context, request *dal_wallet_go.UnSignWithdrawTransactionRequest) (*dal_wallet_go.UnSignWithdrawTransactionResponse, error) {
+func (bws *BusinessMiddleWireServices) BuildUnSignTransaction(ctx context.Context, request *dal_wallet_go.UnSignWithdrawTransactionRequest) (*dal_wallet_go.UnSignWithdrawTransactionResponse, error) {
 	response := &dal_wallet_go.UnSignWithdrawTransactionResponse{
 		Code:     dal_wallet_go.ReturnCode_ERROR,
 		UnSignTx: "0x00",
@@ -180,7 +180,7 @@ func (bws *BusinessMiddleWireServices) CreateUnSignTransaction(ctx context.Conte
 		Base64Tx: base64Str,
 	}
 	log.Info("BusinessMiddleWireServices CreateUnSignTransaction unsignTx", json2.ToJSONString(unsignTx))
-	returnTx, err := bws.accountClient.AccountRpClient.CreateUnSignTransaction(ctx, unsignTx)
+	returnTx, err := bws.accountClient.AccountRpClient.BuildUnSignTransaction(ctx, unsignTx)
 	log.Info("BusinessMiddleWireServices CreateUnSignTransaction returnTx", json2.ToJSONString(returnTx))
 	if err != nil {
 		log.Error("create un sign transaction fail", "err", err)

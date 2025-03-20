@@ -99,7 +99,7 @@ message SetTokenAddressResponse {
 service BusinessMiddleWireServices {
   rpc businessRegister(BusinessRegisterRequest) returns (BusinessRegisterResponse) {}
   rpc exportAddressesByPublicKeys(ExportAddressesRequest) returns (ExportAddressesResponse) {}
-  rpc createUnSignTransaction(UnSignWithdrawTransactionRequest) returns(UnSignWithdrawTransactionResponse){}
+  rpc buildUnSignTransaction(UnSignWithdrawTransactionRequest) returns(UnSignWithdrawTransactionResponse){}
   rpc buildSignedTransaction(SignedWithdrawTransactionRequest) returns(SignedWithdrawTransactionResponse){}
   rpc setTokenAddress(SetTokenAddressRequest) returns (SetTokenAddressResponse) {}
 }
