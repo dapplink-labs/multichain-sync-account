@@ -96,6 +96,9 @@ func (fb *FallBack) onFallBack(fallbackBlockHeader *rpcclient.BlockHeader) error
 	// 热转温(用户地址到热钱包)：把热钱包地址上的资金加上，把温钱包地址上的资金减掉
 	// 温转热(用户地址到热钱包)：把温钱包地址上的资金加上，把热钱包地址上的资金加上
 	// var balances []*database.FbTokenAddressBalance
+	// 文件 mock 数据，然后进行
+	// - 先 mock 1000
+	// - 让 900-1000 的 Hash 发生成
 	for {
 		reorgBlockHeader = append(reorgBlockHeader, database.ReorgBlocks{
 			Hash:       lastBlockHeader.Hash,
