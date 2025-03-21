@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -44,6 +45,11 @@ type BaseSynchronizer struct {
 
 	headers []rpcclient.BlockHeader
 	worker  *clock.LoopFn
+
+	fallbackBlockHeader *rpcclient.BlockHeader
+
+	mu        sync.Mutex
+	listeners []chan interface{}
 }
 
 type TransactionsChannel struct {
@@ -75,13 +81,25 @@ func (syncer *BaseSynchronizer) tick(_ context.Context) {
 	if len(syncer.headers) > 0 {
 		log.Info("retrying previous batch")
 	} else {
-		newHeaders, err := syncer.blockBatch.NextHeaders(syncer.headerBufferSize)
+		newHeaders, fallBlockHeader, isReorg, err := syncer.blockBatch.NextHeaders(syncer.headerBufferSize)
 		if err != nil {
 			log.Error("error querying for headers", "err", err)
 		} else if len(newHeaders) == 0 {
 			log.Warn("no new headers. syncer at head?")
 		} else {
 			syncer.headers = newHeaders
+		}
+
+		if isReorg {
+			syncer.mu.Lock()
+			defer syncer.mu.Unlock()
+			syncer.fallbackBlockHeader = fallBlockHeader
+			for i := range syncer.listeners {
+				select {
+				case syncer.listeners[i] <- struct{}{}:
+				default:
+				}
+			}
 		}
 	}
 	err := syncer.processBatch(syncer.headers)
@@ -194,4 +212,13 @@ func (syncer *BaseSynchronizer) processBatch(headers []rpcclient.BlockHeader) er
 	}
 
 	return nil
+}
+
+func (syncer *BaseSynchronizer) Notify() <-chan interface{} {
+	receiver := make(chan interface{})
+	syncer.mu.Lock()
+	defer syncer.mu.Unlock()
+
+	syncer.listeners = append(syncer.listeners, receiver)
+	return receiver
 }

@@ -3,7 +3,7 @@ package database
 import (
 	"errors"
 	"fmt"
-
+	"github.com/dapplink-labs/multichain-sync-account/common/bigint"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"math/big"
@@ -61,6 +61,7 @@ type WithdrawsDB interface {
 	UpdateWithdrawStatusByTxHash(requestId string, status TxStatus, withdrawsList []*Withdraws) error
 	UpdateWithdrawListByTxHash(requestId string, withdrawsList []*Withdraws) error
 	UpdateWithdrawListById(requestId string, withdrawsList []*Withdraws) error
+	HandleFallBackWithdraw(requestId string, startBlock, EndBlock *big.Int) error
 }
 
 type withdrawsDB struct {
@@ -367,5 +368,24 @@ func (db *withdrawsDB) CheckWithdrawExistsById(tableName string, id string) erro
 		return fmt.Errorf("withdraw not found: %s", id)
 	}
 
+	return nil
+}
+
+func (db *withdrawsDB) HandleFallBackWithdraw(requestId string, startBlock, EndBlock *big.Int) error {
+	for i := startBlock; i.Cmp(EndBlock) < 0; new(big.Int).Add(i, bigint.One) {
+		var withdrawsSingle = Withdraws{}
+		result := db.gorm.Table("withdraws" + requestId).Where(&Transactions{BlockNumber: i}).Take(&withdrawsSingle)
+		if result.Error != nil {
+			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+				return nil
+			}
+			return result.Error
+		}
+		withdrawsSingle.Status = TxStatusFallback
+		err := db.gorm.Table("withdraws" + requestId).Save(&withdrawsSingle).Error
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }

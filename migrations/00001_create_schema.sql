@@ -32,6 +32,15 @@ CREATE TABLE IF NOT EXISTS blocks
 CREATE INDEX IF NOT EXISTS blocks_number ON blocks (number);
 CREATE INDEX IF NOT EXISTS blocks_timestamp ON blocks (timestamp);
 
+CREATE TABLE IF NOT EXISTS reorg_blocks
+(
+    hash        VARCHAR PRIMARY KEY,
+    parent_hash VARCHAR NOT NULL UNIQUE,
+    number      UINT256 NOT NULL UNIQUE CHECK (number > 0),
+    timestamp   INTEGER NOT NULL CHECK (timestamp > 0)
+);
+CREATE INDEX IF NOT EXISTS reorg_blocks_number ON reorg_blocks (number);
+CREATE INDEX IF NOT EXISTS reorg_blocks_timestamp ON reorg_blocks (timestamp);
 
 CREATE TABLE IF NOT EXISTS transactions
 (

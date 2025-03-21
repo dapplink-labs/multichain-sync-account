@@ -2,6 +2,7 @@ package database
 
 import (
 	"errors"
+	"github.com/dapplink-labs/multichain-sync-account/common/bigint"
 	"math/big"
 
 	"gorm.io/gorm"
@@ -31,6 +32,7 @@ type Transactions struct {
 
 type TransactionsView interface {
 	QueryTransactionByHash(requestId string, hash common.Hash) (*Transactions, error)
+	QueryFallBackTransactions(requestId string, startBlock, EndBlock *big.Int) ([]*Transactions, error)
 }
 
 type TransactionsDB interface {
@@ -39,6 +41,7 @@ type TransactionsDB interface {
 	StoreTransactions(string, []*Transactions, uint64) error
 	UpdateTransactionsStatus(requestId string, blockNumber *big.Int) error
 	UpdateTransactionStatus(requestId string, txList []*Transactions) error
+	HandleFallBackTransactions(requestId string, startBlock, EndBlock *big.Int) error
 }
 
 type transactionsDB struct {
@@ -90,6 +93,39 @@ func (db *transactionsDB) UpdateTransactionStatus(requestId string, txList []*Tr
 		}
 		transactionSingle.Status = txList[i].Status
 		transactionSingle.Fee = txList[i].Fee
+		err := db.gorm.Table("transactions_" + requestId).Save(&transactionSingle).Error
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (db *transactionsDB) QueryFallBackTransactions(requestId string, startBlock, EndBlock *big.Int) ([]*Transactions, error) {
+	var fallbackTransactions []*Transactions
+	result := db.gorm.Table("deposits_"+requestId).
+		Where("block_number >= ? and block_number <= ?", startBlock, EndBlock).
+		Find(&fallbackTransactions) // Correctly populate the slice
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, nil // Return nil slice instead of error
+		}
+		return nil, result.Error
+	}
+	return fallbackTransactions, nil
+}
+
+func (db *transactionsDB) HandleFallBackTransactions(requestId string, startBlock, EndBlock *big.Int) error {
+	for i := startBlock; i.Cmp(EndBlock) < 0; new(big.Int).Add(i, bigint.One) {
+		var transactionSingle = Transactions{}
+		result := db.gorm.Table("transactions_" + requestId).Where(&Transactions{BlockNumber: i}).Take(&transactionSingle)
+		if result.Error != nil {
+			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+				return nil
+			}
+			return result.Error
+		}
+		transactionSingle.Status = account.TxStatus_FallBack
 		err := db.gorm.Table("transactions_" + requestId).Save(&transactionSingle).Error
 		if err != nil {
 			return err

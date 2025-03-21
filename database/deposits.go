@@ -3,6 +3,7 @@ package database
 import (
 	"errors"
 	"fmt"
+	"github.com/dapplink-labs/multichain-sync-account/common/bigint"
 	"math/big"
 
 	"github.com/google/uuid"
@@ -55,6 +56,7 @@ type DepositsDB interface {
 	UpdateDepositsStatusByTxHash(requestId string, status TxStatus, depositList []*Deposits) error
 	UpdateDepositListByTxHash(requestId string, depositList []*Deposits) error
 	UpdateDepositListById(requestId string, depositList []*Deposits) error
+	HandleFallBackDeposits(requestId string, startBlock, EndBlock *big.Int) error
 }
 
 type depositsDB struct {
@@ -305,4 +307,23 @@ func (db *depositsDB) UpdateDepositListById(requestId string, depositList []*Dep
 
 		return nil
 	})
+}
+
+func (db *depositsDB) HandleFallBackDeposits(requestId string, startBlock, EndBlock *big.Int) error {
+	for i := startBlock; i.Cmp(EndBlock) < 0; new(big.Int).Add(i, bigint.One) {
+		var depositsSingle = Deposits{}
+		result := db.gorm.Table("deposits" + requestId).Where(&Transactions{BlockNumber: i}).Take(&depositsSingle)
+		if result.Error != nil {
+			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+				return nil
+			}
+			return result.Error
+		}
+		depositsSingle.Status = TxStatusFallback
+		err := db.gorm.Table("deposits" + requestId).Save(&depositsSingle).Error
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -3,6 +3,7 @@ package database
 import (
 	"errors"
 	"fmt"
+	"github.com/dapplink-labs/multichain-sync-account/common/bigint"
 	"gorm.io/gorm"
 	"math/big"
 
@@ -59,6 +60,7 @@ type InternalsDB interface {
 	UpdateInternalStatusByTxHash(requestId string, status TxStatus, internalsList []*Internals) error
 	UpdateInternalListByHash(requestId string, internalsList []*Internals) error
 	UpdateInternalListById(requestId string, internalsList []*Internals) error
+	HandleFallBackInternals(requestId string, startBlock, EndBlock *big.Int) error
 }
 
 type internalsDB struct {
@@ -281,4 +283,23 @@ func (db *internalsDB) UpdateInternalListByHash(requestId string, internalsList 
 
 		return nil
 	})
+}
+
+func (db *internalsDB) HandleFallBackInternals(requestId string, startBlock, EndBlock *big.Int) error {
+	for i := startBlock; i.Cmp(EndBlock) < 0; new(big.Int).Add(i, bigint.One) {
+		var internalsSingle = Internals{}
+		result := db.gorm.Table("internals" + requestId).Where(&Transactions{BlockNumber: i}).Take(&internalsSingle)
+		if result.Error != nil {
+			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+				return nil
+			}
+			return result.Error
+		}
+		internalsSingle.Status = TxStatusFallback
+		err := db.gorm.Table("withdraws" + requestId).Save(&internalsSingle).Error
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

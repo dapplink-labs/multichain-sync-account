@@ -15,6 +15,7 @@ const (
 	TxStatusWalletDone     TxStatus = "wallet_done"
 	TxStatusNotified       TxStatus = "notified"
 	TxStatusSuccess        TxStatus = "success"
+	TxStatusFallback       TxStatus = "fallback"
 )
 
 type TokenType string

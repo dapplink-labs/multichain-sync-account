@@ -31,6 +31,7 @@ const (
 	TxStatus_Success               TxStatus = 3
 	TxStatus_ContractExecuteFailed TxStatus = 4
 	TxStatus_Other                 TxStatus = 5
+	TxStatus_FallBack   TxStatus = 6
 )
 
 // Enum value maps for TxStatus.
