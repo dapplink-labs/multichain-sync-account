@@ -3,7 +3,6 @@ package database
 import (
 	"errors"
 	"fmt"
-	"github.com/dapplink-labs/multichain-sync-account/common/bigint"
 	"gorm.io/gorm"
 	"math/big"
 
@@ -286,17 +285,18 @@ func (db *internalsDB) UpdateInternalListByHash(requestId string, internalsList 
 }
 
 func (db *internalsDB) HandleFallBackInternals(requestId string, startBlock, EndBlock *big.Int) error {
-	for i := startBlock; i.Cmp(EndBlock) < 0; new(big.Int).Add(i, bigint.One) {
+	for indexBlock := startBlock.Uint64(); indexBlock < EndBlock.Uint64(); indexBlock++ {
 		var internalsSingle = Internals{}
-		result := db.gorm.Table("internals" + requestId).Where(&Transactions{BlockNumber: i}).Take(&internalsSingle)
+		result := db.gorm.Table("internals_"+requestId).Where("block_number=?", indexBlock).Take(&internalsSingle)
 		if result.Error != nil {
 			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 				return nil
 			}
 			return result.Error
 		}
+		log.Info("Handle fallBack internal transactions", "txStatusFallBack", TxStatusFallback)
 		internalsSingle.Status = TxStatusFallback
-		err := db.gorm.Table("withdraws" + requestId).Save(&internalsSingle).Error
+		err := db.gorm.Table("internals_" + requestId).Save(&internalsSingle).Error
 		if err != nil {
 			return err
 		}

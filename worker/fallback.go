@@ -19,22 +19,28 @@ import (
 
 type FallBack struct {
 	deposit        *Deposit
+	database       *database.DB
+	rpcClient      *rpcclient.WalletChainAccountClient
 	resourceCtx    context.Context
 	resourceCancel context.CancelFunc
 	tasks          tasks.Group
 	ticker         *time.Ticker
+	confirmations  uint64
 }
 
-func NewFallBack(cfg *config.Config, deposit *Deposit, shutdown context.CancelCauseFunc) (*FallBack, error) {
+func NewFallBack(cfg *config.Config, db *database.DB, rpcClient *rpcclient.WalletChainAccountClient, deposit *Deposit, shutdown context.CancelCauseFunc) (*FallBack, error) {
 	resCtx, resCancel := context.WithCancel(context.Background())
 	return &FallBack{
 		deposit:        deposit,
+		database:       db,
+		rpcClient:      rpcClient,
 		resourceCtx:    resCtx,
 		resourceCancel: resCancel,
 		tasks: tasks.Group{HandleCrit: func(err error) {
 			shutdown(fmt.Errorf("critical error in fallback: %w", err))
 		}},
-		ticker: time.NewTicker(cfg.ChainNode.WorkerInterval),
+		ticker:        time.NewTicker(time.Second * 3),
+		confirmations: uint64(cfg.ChainNode.Confirmations),
 	}, nil
 }
 
@@ -51,33 +57,29 @@ func (fb *FallBack) Close() error {
 	return nil
 }
 
-/*
- * 加一张：reorg_block
- * 触发 fallback 的逻辑有两个
- * -- 当前区块的 ParentHash != 上一个区块的 Hash
- * -- 当前链上的最新块高 < 数据库里面的最新块高
- * 处理流程
- * -- 扫链任务里面检测到回滚的条件，通知 fallback 执行回滚
- * -- 将回滚或者重组的区块全部放到 reorg_block
- * -- 将所有对应 reorg_block 的交易状态修改成回滚状态（处理的是没有过确认位的交易）
- */
-
 func (fb *FallBack) Start() error {
 	log.Info("start fallback......")
 	fb.tasks.Go(func() error {
 		for {
 			select {
 			case <-fb.ticker.C:
-				log.Info("fallback task")
-				syncUpdates := fb.deposit.Notify()
-				for range syncUpdates {
+				log.Info("fallback task", "depositIsFallBack", fb.deposit.isFallBack)
+				if fb.deposit.isFallBack {
 					log.Info("notified of fallback", "fallbackBlockNumber", fb.deposit.fallbackBlockHeader.Number)
 					if err := fb.onFallBack(fb.deposit.fallbackBlockHeader); err != nil {
 						log.Error("handle fallback block fail", "err", err)
 					}
+					dbLatestBlockHeader, err := fb.database.Blocks.LatestBlocks()
+					if err != nil {
+						log.Error("Query latest block fail", "err", err)
+						return err
+					}
+					fb.deposit.blockBatch = rpcclient.NewBatchBlock(fb.rpcClient, dbLatestBlockHeader, big.NewInt(int64(fb.confirmations)))
+					fb.deposit.isFallBack = false
+					fb.deposit.fallbackBlockHeader = nil
+				} else {
+					log.Info("no block fallback, waiting for fallback task coming")
 				}
-				log.Info("no block fallback, shutting down fallback task")
-				return nil
 			case <-fb.resourceCtx.Done():
 				log.Info("stop fallback in worker")
 				return nil
@@ -89,43 +91,54 @@ func (fb *FallBack) Start() error {
 
 func (fb *FallBack) onFallBack(fallbackBlockHeader *rpcclient.BlockHeader) error {
 	var reorgBlockHeader []database.ReorgBlocks
+	var chainBlocks []database.Blocks
 	lastBlockHeader := fallbackBlockHeader
-	// 充值交易：把用户地址上的资金减掉
-	// 提现交易：把热钱包地址上的资金加上
-	// 归集(用户地址到热钱包)：把热钱包地址上的资金减掉，把用户地址上的资金加上
-	// 热转温(用户地址到热钱包)：把热钱包地址上的资金加上，把温钱包地址上的资金减掉
-	// 温转热(用户地址到热钱包)：把温钱包地址上的资金加上，把热钱包地址上的资金加上
-	// var balances []*database.FbTokenAddressBalance
-	// 文件 mock 数据，然后进行
-	// - 先 mock 1000
-	// - 让 900-1000 的 Hash 发生成
 	for {
-		reorgBlockHeader = append(reorgBlockHeader, database.ReorgBlocks{
-			Hash:       lastBlockHeader.Hash,
-			ParentHash: lastBlockHeader.ParentHash,
-			Number:     lastBlockHeader.Number,
-			Timestamp:  lastBlockHeader.Timestamp,
-		})
-
 		lastBlockNumber := new(big.Int).Sub(lastBlockHeader.Number, bigint.One)
-		chainBlockHeader, err := fb.deposit.rpcClient.GetBlockHeader(lastBlockNumber)
+
+		log.Info("start get block header info", "lastBlockNumber", lastBlockNumber)
+
+		chainBlockHeader, err := fb.rpcClient.GetBlockHeader(lastBlockNumber)
 		if err != nil {
-			return err
+			log.Warn("query block from chain err", "err", err)
+			break
 		}
-		if lastBlockHeader.ParentHash == chainBlockHeader.Hash {
+
+		dbBlockHeader, err := fb.database.Blocks.QueryBlocksByNumber(lastBlockNumber)
+		if err != nil {
+			log.Warn("query block from database err", "err", err)
+			break
+		}
+		log.Info("query blocks success", "dbBlockHeaderHash", dbBlockHeader.Hash)
+		chainBlocks = append(chainBlocks, database.Blocks{
+			Hash:       dbBlockHeader.Hash,
+			ParentHash: dbBlockHeader.ParentHash,
+			Number:     dbBlockHeader.Number,
+			Timestamp:  dbBlockHeader.Timestamp,
+		})
+		reorgBlockHeader = append(reorgBlockHeader, database.ReorgBlocks{
+			Hash:       dbBlockHeader.Hash,
+			ParentHash: dbBlockHeader.ParentHash,
+			Number:     dbBlockHeader.Number,
+			Timestamp:  dbBlockHeader.Timestamp,
+		})
+		log.Info("lastBlockHeader chainBlockHeader ", "lastBlockParentHash", lastBlockHeader.ParentHash, "lastBlockNumber", lastBlockHeader.Number, "chainBlockHash", chainBlockHeader.Hash, "chainBlockHeaderNumber", chainBlockHeader.Number)
+		if lastBlockHeader.ParentHash == dbBlockHeader.Hash {
+			lastBlockHeader = chainBlockHeader
 			break
 		}
 		lastBlockHeader = chainBlockHeader
 	}
 
-	businessList, err := fb.deposit.database.Business.QueryBusinessList()
+	businessList, err := fb.database.Business.QueryBusinessList()
 	if err != nil {
 		log.Error("Query business list fail", "err", err)
 		return err
 	}
 	var fallbackBalances []*database.TokenBalance
 	for _, businessItem := range businessList {
-		transactionsList, err := fb.deposit.database.Transactions.QueryFallBackTransactions(businessItem.BusinessUid, lastBlockHeader.Number, fallbackBlockHeader.Number)
+		log.Info("handle business", "BusinessUid", businessItem.BusinessUid)
+		transactionsList, err := fb.database.Transactions.QueryFallBackTransactions(businessItem.BusinessUid, lastBlockHeader.Number, fallbackBlockHeader.Number)
 		if err != nil {
 			return err
 		}
@@ -134,7 +147,7 @@ func (fb *FallBack) onFallBack(fallbackBlockHeader *rpcclient.BlockHeader) error
 				FromAddress:  transaction.FromAddress,
 				ToAddress:    transaction.ToAddress,
 				TokenAddress: transaction.TokenAddress,
-				Balance:      new(big.Int).Neg(transaction.Amount),
+				Balance:      transaction.Amount,
 				TxType:       transaction.TxType,
 			}
 			fallbackBalances = append(fallbackBalances, fbb)
@@ -143,10 +156,16 @@ func (fb *FallBack) onFallBack(fallbackBlockHeader *rpcclient.BlockHeader) error
 
 	retryStrategy := &retry.ExponentialStrategy{Min: 1000, Max: 20_000, MaxJitter: 250}
 	if _, err := retry.Do[interface{}](fb.resourceCtx, 10, retryStrategy, func() (interface{}, error) {
-		if err := fb.deposit.database.Transaction(func(tx *database.DB) error {
+		if err := fb.database.Transaction(func(tx *database.DB) error {
 			if len(reorgBlockHeader) > 0 {
-				log.Info("Store deposit transaction success", "totalTx", len(reorgBlockHeader))
+				log.Info("Store reorg block success", "totalTx", len(reorgBlockHeader))
 				if err := tx.ReorgBlocks.StoreReorgBlocks(reorgBlockHeader); err != nil {
+					return err
+				}
+			}
+			if len(chainBlocks) > 0 {
+				log.Info("delete block success", "totalTx", len(reorgBlockHeader))
+				if err := tx.Blocks.DeleteBlocksByNumber(chainBlocks); err != nil {
 					return err
 				}
 			}

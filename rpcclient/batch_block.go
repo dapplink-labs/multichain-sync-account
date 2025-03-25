@@ -13,6 +13,7 @@ import (
 
 var (
 	ErrBatchBlockAheadOfProvider = errors.New("the BatchBlock's internal state is ahead of the provider")
+	ErrBlockFallBack             = errors.New("the block fallback, fallback handle it now")
 )
 
 type BatchBlock struct {
@@ -67,7 +68,7 @@ func (f *BatchBlock) NextHeaders(maxSize uint64) ([]BlockHeader, *BlockHeader, b
 	}
 	endHeight = bigint.Clamp(nextHeight, endHeight, maxSize)
 	count := new(big.Int).Sub(endHeight, nextHeight).Uint64() + 1
-	headers := make([]BlockHeader, count)
+	var headers []BlockHeader
 	for i := uint64(0); i < count; i++ {
 		height := new(big.Int).Add(nextHeight, new(big.Int).SetUint64(i))
 		blockHeader, err := f.rpcClient.GetBlockHeader(height)
@@ -75,15 +76,16 @@ func (f *BatchBlock) NextHeaders(maxSize uint64) ([]BlockHeader, *BlockHeader, b
 			log.Error("get block info fail", "err", err)
 			return nil, nil, false, err
 		}
-		if headers != nil && i-1 > 0 {
-			if blockHeader.Number.Cmp(headers[i-1].Number) < 0 || blockHeader.ParentHash != headers[i-1].Hash {
-				headers[i] = *blockHeader
-				return headers, blockHeader, true, err
-			}
+		headers = append(headers, *blockHeader)
+		if len(headers) == 1 && f.lastTraversedHeader != nil && headers[0].ParentHash != f.lastTraversedHeader.Hash {
+			log.Warn("lastTraversedHeader and header zero: parentHash and hash", "parentHash", headers[0].ParentHash, "Hash", f.lastTraversedHeader.Hash)
+			return nil, blockHeader, true, ErrBlockFallBack
 		}
-		headers[i] = *blockHeader
+		if len(headers) > 1 && headers[i-1].Hash != headers[i].ParentHash {
+			log.Warn("headers[i-1] nad headers[i] parentHash and hash", "parentHash", headers[i].ParentHash, "Hash", headers[i-1].Hash)
+			return nil, blockHeader, true, ErrBlockFallBack
+		}
 	}
-
 	numHeaders := len(headers)
 	if numHeaders == 0 {
 		return nil, nil, false, nil

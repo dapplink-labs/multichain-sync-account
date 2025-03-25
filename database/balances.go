@@ -36,6 +36,7 @@ type BalancesDB interface {
 	BalancesView
 
 	UpdateOrCreate(string, []*TokenBalance) error
+	UpdateFallBalance(string, []*TokenBalance) error
 	StoreBalances(string, []*Balances) error
 	UpdateBalanceListByTwoAddress(string, []*Balances) error
 	UpdateBalance(string, *Balances) error
@@ -229,7 +230,6 @@ func (db *balancesDB) UpdateOrCreate(requestId string, balanceList []*TokenBalan
 	if len(balanceList) == 0 {
 		return nil
 	}
-
 	return db.gorm.Transaction(func(tx *gorm.DB) error {
 		for _, balance := range balanceList {
 			log.Info("Processing balance update",
@@ -241,6 +241,31 @@ func (db *balancesDB) UpdateOrCreate(requestId string, balanceList []*TokenBalan
 
 			if err := db.handleBalanceUpdate(tx, requestId, balance); err != nil {
 				return fmt.Errorf("failed to handle balance update: %w", err)
+			}
+		}
+		return nil
+	})
+}
+
+func (db *balancesDB) UpdateFallBalance(requestId string, balanceList []*TokenBalance) error {
+	if len(balanceList) == 0 {
+		return nil
+	}
+	return db.gorm.Transaction(func(tx *gorm.DB) error {
+		for _, balance := range balanceList {
+			switch balance.TxType {
+			case TxTypeDeposit:
+				return db.handleFallBackDeposit(tx, requestId, balance)
+			case TxTypeWithdraw:
+				return db.handleFallBackWithdraw(tx, requestId, balance)
+			case TxTypeCollection:
+				return db.handleFallBackCollection(tx, requestId, balance)
+			case TxTypeHot2Cold:
+				return db.handleFallBackHotToCold(tx, requestId, balance)
+			case TxTypeCold2Hot:
+				return db.handleFallBackColdToHot(tx, requestId, balance)
+			default:
+				return fmt.Errorf("unsupported transaction type: %s", balance.TxType)
 			}
 		}
 		return nil
@@ -282,6 +307,24 @@ func (db *balancesDB) handleDeposit(tx *gorm.DB, requestId string, balance *Toke
 	return db.UpdateAndSaveBalance(tx, requestId, userAddress)
 }
 
+func (db *balancesDB) handleFallBackDeposit(tx *gorm.DB, requestId string, balance *TokenBalance) error {
+	userAddress, err := db.QueryWalletBalanceByTokenAndAddress(requestId, AddressTypeUser, balance.ToAddress, balance.TokenAddress)
+	if err != nil {
+		log.Error("Query user address failed", "err", err)
+		return err
+	}
+	log.Info("Processing handleDeposit",
+		"txType", balance.TxType,
+		"from", balance.FromAddress,
+		"to", balance.ToAddress,
+		"token", balance.TokenAddress,
+		"amount", balance.Balance,
+		"userAddress.Balance,", userAddress.Balance)
+	userAddress.Balance = new(big.Int).Sub(userAddress.Balance, balance.Balance)
+	log.Info("userAddress.Balance after", new(big.Int).Sub(userAddress.Balance, balance.Balance))
+	return db.UpdateAndSaveBalance(tx, requestId, userAddress)
+}
+
 func (db *balancesDB) handleWithdraw(tx *gorm.DB, requestId string, balance *TokenBalance) error {
 	hotWallet, err := db.QueryWalletBalanceByTokenAndAddress(requestId, AddressTypeHot, balance.FromAddress, balance.TokenAddress)
 	if err != nil {
@@ -290,6 +333,17 @@ func (db *balancesDB) handleWithdraw(tx *gorm.DB, requestId string, balance *Tok
 	}
 
 	hotWallet.Balance = new(big.Int).Sub(hotWallet.Balance, balance.Balance)
+	return db.UpdateAndSaveBalance(tx, requestId, hotWallet)
+}
+
+func (db *balancesDB) handleFallBackWithdraw(tx *gorm.DB, requestId string, balance *TokenBalance) error {
+	hotWallet, err := db.QueryWalletBalanceByTokenAndAddress(requestId, AddressTypeHot, balance.FromAddress, balance.TokenAddress)
+	if err != nil {
+		log.Error("Query hot wallet failed", "err", err)
+		return err
+	}
+
+	hotWallet.Balance = new(big.Int).Add(hotWallet.Balance, balance.Balance)
 	return db.UpdateAndSaveBalance(tx, requestId, hotWallet)
 }
 
@@ -313,6 +367,26 @@ func (db *balancesDB) handleCollection(tx *gorm.DB, requestId string, balance *T
 	return db.UpdateAndSaveBalance(tx, requestId, hotWallet)
 }
 
+func (db *balancesDB) handleFallBackCollection(tx *gorm.DB, requestId string, balance *TokenBalance) error {
+	userWallet, err := db.QueryWalletBalanceByTokenAndAddress(requestId, AddressTypeUser, balance.FromAddress, balance.TokenAddress)
+	if err != nil {
+		log.Error("Query user wallet failed", "err", err)
+		return err
+	}
+	userWallet.Balance = new(big.Int).Add(userWallet.Balance, balance.Balance)
+	if err := db.UpdateAndSaveBalance(tx, requestId, userWallet); err != nil {
+		return err
+	}
+
+	hotWallet, err := db.QueryWalletBalanceByTokenAndAddress(requestId, AddressTypeHot, balance.ToAddress, balance.TokenAddress)
+	if err != nil {
+		log.Error("Query hot wallet failed", "err", err)
+		return err
+	}
+	hotWallet.Balance = new(big.Int).Sub(hotWallet.Balance, balance.Balance)
+	return db.UpdateAndSaveBalance(tx, requestId, hotWallet)
+}
+
 func (db *balancesDB) handleHotToCold(tx *gorm.DB, requestId string, balance *TokenBalance) error {
 	hotWallet, err := db.QueryWalletBalanceByTokenAndAddress(requestId, AddressTypeHot, balance.FromAddress, balance.TokenAddress)
 	if err != nil {
@@ -333,6 +407,26 @@ func (db *balancesDB) handleHotToCold(tx *gorm.DB, requestId string, balance *To
 	return db.UpdateAndSaveBalance(tx, requestId, coldWallet)
 }
 
+func (db *balancesDB) handleFallBackHotToCold(tx *gorm.DB, requestId string, balance *TokenBalance) error {
+	hotWallet, err := db.QueryWalletBalanceByTokenAndAddress(requestId, AddressTypeHot, balance.FromAddress, balance.TokenAddress)
+	if err != nil {
+		log.Error("Query hot wallet failed", "err", err)
+		return err
+	}
+	hotWallet.Balance = new(big.Int).Add(hotWallet.Balance, balance.Balance)
+	if err := db.UpdateAndSaveBalance(tx, requestId, hotWallet); err != nil {
+		return err
+	}
+
+	coldWallet, err := db.QueryWalletBalanceByTokenAndAddress(requestId, AddressTypeCold, balance.ToAddress, balance.TokenAddress)
+	if err != nil {
+		log.Error("Query cold wallet failed", "err", err)
+		return err
+	}
+	coldWallet.Balance = new(big.Int).Sub(coldWallet.Balance, balance.Balance)
+	return db.UpdateAndSaveBalance(tx, requestId, coldWallet)
+}
+
 func (db *balancesDB) handleColdToHot(tx *gorm.DB, requestId string, balance *TokenBalance) error {
 	coldWallet, err := db.QueryWalletBalanceByTokenAndAddress(requestId, AddressTypeCold, balance.ToAddress, balance.TokenAddress)
 	if err != nil {
@@ -350,5 +444,25 @@ func (db *balancesDB) handleColdToHot(tx *gorm.DB, requestId string, balance *To
 		return err
 	}
 	hotWallet.Balance = new(big.Int).Add(hotWallet.Balance, balance.Balance)
+	return db.UpdateAndSaveBalance(tx, requestId, hotWallet)
+}
+
+func (db *balancesDB) handleFallBackColdToHot(tx *gorm.DB, requestId string, balance *TokenBalance) error {
+	coldWallet, err := db.QueryWalletBalanceByTokenAndAddress(requestId, AddressTypeCold, balance.ToAddress, balance.TokenAddress)
+	if err != nil {
+		log.Error("Query cold wallet failed", "err", err)
+		return err
+	}
+	coldWallet.Balance = new(big.Int).Add(coldWallet.Balance, balance.Balance)
+	if err := db.UpdateAndSaveBalance(tx, requestId, coldWallet); err != nil {
+		return err
+	}
+
+	hotWallet, err := db.QueryWalletBalanceByTokenAndAddress(requestId, AddressTypeHot, balance.FromAddress, balance.TokenAddress)
+	if err != nil {
+		log.Error("Query hot wallet failed", "err", err)
+		return err
+	}
+	hotWallet.Balance = new(big.Int).Sub(hotWallet.Balance, balance.Balance)
 	return db.UpdateAndSaveBalance(tx, requestId, hotWallet)
 }

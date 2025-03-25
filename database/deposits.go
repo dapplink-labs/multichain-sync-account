@@ -3,7 +3,6 @@ package database
 import (
 	"errors"
 	"fmt"
-	"github.com/dapplink-labs/multichain-sync-account/common/bigint"
 	"math/big"
 
 	"github.com/google/uuid"
@@ -109,12 +108,11 @@ func (db *depositsDB) QueryDepositsById(requestId string, guid string) (*Deposit
 	return &deposit, nil
 }
 
-// UpdateDepositsComfirms 查询所有还没有过确认位交易，用最新区块减去对应区块更新确认，如果这个大于我们预设的确认位，那么这笔交易可以认为已经入账
 func (db *depositsDB) UpdateDepositsComfirms(requestId string, blockNumber uint64, confirms uint64) error {
 	return db.gorm.Transaction(func(tx *gorm.DB) error {
 		var unConfirmDeposits []*Deposits
 		result := tx.Table("deposits_"+requestId).
-			Where("block_number <= ? AND status = ?", blockNumber, TxStatusBroadcasted).
+			Where("block_number <= ? AND status = ? AND status != ?", blockNumber, TxStatusBroadcasted, TxStatusFallback).
 			Find(&unConfirmDeposits)
 		if result.Error != nil {
 			return result.Error
@@ -190,7 +188,6 @@ func (db *depositsDB) UpdateDepositsStatusByTxHash(requestId string, status TxSt
 			"count", result.RowsAffected,
 			"status", status,
 		)
-
 		return nil
 	})
 }
@@ -310,17 +307,19 @@ func (db *depositsDB) UpdateDepositListById(requestId string, depositList []*Dep
 }
 
 func (db *depositsDB) HandleFallBackDeposits(requestId string, startBlock, EndBlock *big.Int) error {
-	for i := startBlock; i.Cmp(EndBlock) < 0; new(big.Int).Add(i, bigint.One) {
+	log.Info("Handle fallBack deposit transactions", "startBlock", startBlock.String(), "EndBlock", EndBlock.String())
+	for indexBlock := startBlock.Uint64(); indexBlock <= EndBlock.Uint64(); indexBlock++ {
 		var depositsSingle = Deposits{}
-		result := db.gorm.Table("deposits" + requestId).Where(&Transactions{BlockNumber: i}).Take(&depositsSingle)
+		result := db.gorm.Table("deposits_"+requestId).Where("block_number=?", indexBlock).Take(&depositsSingle)
 		if result.Error != nil {
 			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 				return nil
 			}
 			return result.Error
 		}
+		log.Info("Handle fallBack deposit transactions", "txStatusFallBack", TxStatusFallback, "startBlock", startBlock.String(), "EndBlock", EndBlock.String())
 		depositsSingle.Status = TxStatusFallback
-		err := db.gorm.Table("deposits" + requestId).Save(&depositsSingle).Error
+		err := db.gorm.Table("deposits_" + requestId).Save(&depositsSingle).Error
 		if err != nil {
 			return err
 		}

@@ -20,6 +20,7 @@ type MultiChainSync struct {
 	Deposit      *worker.Deposit
 	Withdraw     *worker.Withdraw
 	Internal     *worker.Internal
+	FallBack     *worker.FallBack
 
 	shutdown context.CancelCauseFunc
 	stopped  atomic.Bool
@@ -48,11 +49,13 @@ func NewMultiChainSync(ctx context.Context, cfg *config.Config, shutdown context
 	deposit, _ := worker.NewDeposit(cfg, db, accountClient, shutdown)
 	withdraw, _ := worker.NewWithdraw(cfg, db, accountClient, shutdown)
 	internal, _ := worker.NewInternal(cfg, db, accountClient, shutdown)
+	fallback, _ := worker.NewFallBack(cfg, db, accountClient, deposit, shutdown)
 
 	out := &MultiChainSync{
 		Deposit:  deposit,
 		Withdraw: withdraw,
 		Internal: internal,
+		FallBack: fallback,
 		shutdown: shutdown,
 	}
 	return out, nil
@@ -63,11 +66,15 @@ func (mcs *MultiChainSync) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	err = mcs.Withdraw.Start()
-	if err != nil {
-		return err
-	}
-	err = mcs.Internal.Start()
+	//err = mcs.Withdraw.Start()
+	//if err != nil {
+	//	return err
+	//}
+	//err = mcs.Internal.Start()
+	//if err != nil {
+	//	return err
+	//}
+	err = mcs.FallBack.Start()
 	if err != nil {
 		return err
 	}
@@ -79,11 +86,15 @@ func (mcs *MultiChainSync) Stop(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	err = mcs.Withdraw.Close()
-	if err != nil {
-		return err
-	}
-	err = mcs.Internal.Close()
+	//err = mcs.Withdraw.Close()
+	//if err != nil {
+	//	return err
+	//}
+	//err = mcs.Internal.Close()
+	//if err != nil {
+	//	return err
+	//}
+	err = mcs.FallBack.Close()
 	if err != nil {
 		return err
 	}

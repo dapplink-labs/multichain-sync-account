@@ -30,8 +30,8 @@ const (
 	TxStatus_Failed                TxStatus = 2
 	TxStatus_Success               TxStatus = 3
 	TxStatus_ContractExecuteFailed TxStatus = 4
-	TxStatus_Other                 TxStatus = 5
-	TxStatus_FallBack   TxStatus = 6
+	TxStatus_FallBack              TxStatus = 5
+	TxStatus_Other                 TxStatus = 6
 )
 
 // Enum value maps for TxStatus.
@@ -42,7 +42,8 @@ var (
 		2: "Failed",
 		3: "Success",
 		4: "ContractExecuteFailed",
-		5: "Other",
+		5: "FallBack",
+		6: "Other",
 	}
 	TxStatus_value = map[string]int32{
 		"NotFound":              0,
@@ -50,7 +51,8 @@ var (
 		"Failed":                2,
 		"Success":               3,
 		"ContractExecuteFailed": 4,
-		"Other":                 5,
+		"FallBack":              5,
+		"Other":                 6,
 	}
 )
 

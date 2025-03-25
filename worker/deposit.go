@@ -60,12 +60,14 @@ func NewDeposit(cfg *config.Config, db *database.DB, rpcClient *rpcclient.Wallet
 	businessTxChannel := make(chan map[string]*TransactionsChannel)
 
 	baseSyncer := BaseSynchronizer{
-		loopInterval:     cfg.ChainNode.SynchronizerInterval,
-		headerBufferSize: cfg.ChainNode.BlocksStep,
-		businessChannels: businessTxChannel,
-		rpcClient:        rpcClient,
-		blockBatch:       rpcclient.NewBatchBlock(rpcClient, fromHeader, big.NewInt(int64(cfg.ChainNode.Confirmations))),
-		database:         db,
+		loopInterval:        cfg.ChainNode.SynchronizerInterval,
+		headerBufferSize:    cfg.ChainNode.BlocksStep,
+		businessChannels:    businessTxChannel,
+		rpcClient:           rpcClient,
+		blockBatch:          rpcclient.NewBatchBlock(rpcClient, fromHeader, big.NewInt(int64(cfg.ChainNode.Confirmations))),
+		database:            db,
+		isFallBack:          false,
+		fallbackBlockHeader: nil,
 	}
 
 	resCtx, resCancel := context.WithCancel(context.Background())
@@ -255,7 +257,7 @@ func (deposit *Deposit) HandleDeposit(tx *Transaction, txMsg *account.TxMessage)
 		TokenMeta:    "0x00",
 		MaxFeePerGas: txMsg.Fee,
 		Amount:       txAmount,
-		Status:       database.TxStatusBroadcasted,
+		Status:       database.TxStatusSuccess,
 		Timestamp:    uint64(time.Now().Unix()),
 	}
 	return depositTx, nil
@@ -317,7 +319,7 @@ func (deposit *Deposit) BuildTransaction(tx *Transaction, txMsg *account.TxMessa
 		TokenId:      "0x00",
 		TokenMeta:    "0x00",
 		Fee:          txFee,
-		Status:       txMsg.Status,
+		Status:       database.TxStatusSuccess,
 		Amount:       txAmount,
 		TxType:       tx.TxType,
 		Timestamp:    uint64(time.Now().Unix()),

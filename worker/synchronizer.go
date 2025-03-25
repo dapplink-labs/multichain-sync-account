@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"math/big"
-	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -48,8 +47,7 @@ type BaseSynchronizer struct {
 
 	fallbackBlockHeader *rpcclient.BlockHeader
 
-	mu        sync.Mutex
-	listeners []chan interface{}
+	isFallBack bool
 }
 
 type TransactionsChannel struct {
@@ -83,23 +81,21 @@ func (syncer *BaseSynchronizer) tick(_ context.Context) {
 	} else {
 		newHeaders, fallBlockHeader, isReorg, err := syncer.blockBatch.NextHeaders(syncer.headerBufferSize)
 		if err != nil {
-			log.Error("error querying for headers", "err", err)
+			if isReorg && errors.Is(err, rpcclient.ErrBlockFallBack) {
+				if !syncer.isFallBack {
+					log.Warn("found block fallback, start fallback task")
+					syncer.isFallBack = true
+					syncer.fallbackBlockHeader = fallBlockHeader
+				} else {
+					log.Warn("the block fallback, fallback task handling it now")
+				}
+			} else {
+				log.Error("error querying for headers", "err", err)
+			}
 		} else if len(newHeaders) == 0 {
 			log.Warn("no new headers. syncer at head?")
 		} else {
 			syncer.headers = newHeaders
-		}
-
-		if isReorg {
-			syncer.mu.Lock()
-			defer syncer.mu.Unlock()
-			syncer.fallbackBlockHeader = fallBlockHeader
-			for i := range syncer.listeners {
-				select {
-				case syncer.listeners[i] <- struct{}{}:
-				default:
-				}
-			}
 		}
 	}
 	err := syncer.processBatch(syncer.headers)
@@ -212,13 +208,4 @@ func (syncer *BaseSynchronizer) processBatch(headers []rpcclient.BlockHeader) er
 	}
 
 	return nil
-}
-
-func (syncer *BaseSynchronizer) Notify() <-chan interface{} {
-	receiver := make(chan interface{})
-	syncer.mu.Lock()
-	defer syncer.mu.Unlock()
-
-	syncer.listeners = append(syncer.listeners, receiver)
-	return receiver
 }

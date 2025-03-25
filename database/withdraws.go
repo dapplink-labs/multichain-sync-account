@@ -3,7 +3,6 @@ package database
 import (
 	"errors"
 	"fmt"
-	"github.com/dapplink-labs/multichain-sync-account/common/bigint"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"math/big"
@@ -372,9 +371,9 @@ func (db *withdrawsDB) CheckWithdrawExistsById(tableName string, id string) erro
 }
 
 func (db *withdrawsDB) HandleFallBackWithdraw(requestId string, startBlock, EndBlock *big.Int) error {
-	for i := startBlock; i.Cmp(EndBlock) < 0; new(big.Int).Add(i, bigint.One) {
+	for indexBlock := startBlock.Uint64(); indexBlock <= EndBlock.Uint64(); indexBlock++ {
 		var withdrawsSingle = Withdraws{}
-		result := db.gorm.Table("withdraws" + requestId).Where(&Transactions{BlockNumber: i}).Take(&withdrawsSingle)
+		result := db.gorm.Table("withdraws_"+requestId).Where("block_number=?", indexBlock).Take(&withdrawsSingle)
 		if result.Error != nil {
 			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 				return nil
@@ -382,7 +381,7 @@ func (db *withdrawsDB) HandleFallBackWithdraw(requestId string, startBlock, EndB
 			return result.Error
 		}
 		withdrawsSingle.Status = TxStatusFallback
-		err := db.gorm.Table("withdraws" + requestId).Save(&withdrawsSingle).Error
+		err := db.gorm.Table("withdraws_" + requestId).Save(&withdrawsSingle).Error
 		if err != nil {
 			return err
 		}
