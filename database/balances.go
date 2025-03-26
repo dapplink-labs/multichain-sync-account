@@ -36,7 +36,7 @@ type BalancesDB interface {
 	BalancesView
 
 	UpdateOrCreate(string, []*TokenBalance) error
-	UpdateFallBalance(string, []*TokenBalance) error
+	UpdateFallBackBalance(string, []*TokenBalance) error
 	StoreBalances(string, []*Balances) error
 	UpdateBalanceListByTwoAddress(string, []*Balances) error
 	UpdateBalance(string, *Balances) error
@@ -247,7 +247,7 @@ func (db *balancesDB) UpdateOrCreate(requestId string, balanceList []*TokenBalan
 	})
 }
 
-func (db *balancesDB) UpdateFallBalance(requestId string, balanceList []*TokenBalance) error {
+func (db *balancesDB) UpdateFallBackBalance(requestId string, balanceList []*TokenBalance) error {
 	if len(balanceList) == 0 {
 		return nil
 	}

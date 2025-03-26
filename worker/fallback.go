@@ -183,7 +183,7 @@ func (fb *FallBack) onFallBack(fallbackBlockHeader *rpcclient.BlockHeader) error
 					if err := tx.Transactions.HandleFallBackTransactions(businessItem.BusinessUid, lastBlockHeader.Number, fallbackBlockHeader.Number); err != nil {
 						return err
 					}
-					if err := tx.Balances.UpdateOrCreate(businessItem.BusinessUid, fallbackBalances); err != nil {
+					if err := tx.Balances.UpdateFallBackBalance(businessItem.BusinessUid, fallbackBalances); err != nil {
 						return err
 					}
 				}
